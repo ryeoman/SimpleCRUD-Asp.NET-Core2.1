@@ -1,0 +1,197 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+@section Styles{
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.css" />
+}
+
+<div class="row">
+    <div class="col-sm-12">
+        <h3>Patient List</h3>
+        <button class="btn btn-success pull-right" id="addNew">Add New</button>
+    </div>
+    <div class="col-sm-12">
+        <hr />
+    </div>
+    <div class="col-sm-12">
+        <table id="example" class="display" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Patient Id</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Gender</th>
+                    <th>Birth Place</th>
+                    <th>Date Of Birth</th>
+                    <th>Edit / Delete</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+                <tr>
+                    <th>User Id</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Gender</th>
+                    <th>Birth Place</th>
+                    <th>Date Of Birth</th>
+                    <th>Edit / Delete</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-request">
+    <div class="modal-dialog">
+        <div id="modal-content" class="modal-content">
+
+        </div>
+        <!-- /.modal-content -->
+    </div>
+    <!-- /.modal-dialog -->
+</div>
+
+
+@section Scripts{
+    <script src="~/lib/jquery-validation/dist/jquery.validate.js"></script>
+    <script src="~/lib/jquery-validation/dist/additional-methods.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+    <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.js"></script>
+
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $('#addNew').on('click', function () {
+                GetDetail(0);
+            });
+
+            var GetDetail = function (id) {
+                var callback = function (response) {
+                    $('#modal-content').html(response);
+                    $('#modal-request').modal('show');
+                    var newForm = $("#PatientForm");
+                    $.validator.unobtrusive.parse(newForm);
+                };
+
+                $.ajax({
+                    type: "POST",
+                    url: "/Home/GetPatientDetail",
+                    data: {
+                        PatientId: id
+                    },
+                    success: callback,
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        console.log(textStatus);
+                    }
+                });
+            }
+
+            $("#modal-content").on('click', '#save-change', function () {
+                var $form = $("#PatientForm");
+                $.validator.unobtrusive.parse($form);
+                $form.validate();
+                var data = $("#PatientForm").serialize();
+
+                if ($form.valid()) {
+                    var callback = function (data) {
+                        console.log(data);
+                        if (data.isSuccess) {
+                            table.ajax.reload();
+                            $('#modal-request').modal('hide');
+                        } else {
+                            console.log(data.message);
+                        }
+                    };
+
+                    $.ajax({
+                        type: "POST",
+                        url: "/Home/SavePatientDetail",
+                        data: data,
+                        success: callback,
+                        error: function (jqXHR, textStatus, errorThrown) {
+                            console.log(textStatus);
+                        }
+                    });
+                } else {
+                    console.log("not valid");
+                }
+            });
+
+            var table = $('#example').DataTable({
+                "processing": true,
+                "serverSide": true,
+                "ajax": {
+                    "url": "/Home/PatientList",
+                    "type": "POST"
+                },
+                "columns": [
+                    { "data": "patientId" },
+                    { "data": "firstName" },
+                    { "data": "lastName" },
+                    { "data": "gender" },
+                    { "data": "birthPlace" },
+                    { "data": "dateOfBirth" },
+                    {
+                        data: null,
+                        className: "center",
+                        defaultContent: '<a href="" class="editor_edit">Edit</a> / <a href="" class="editor_remove">Remove</a>'
+                    }
+                ],
+                "columnDefs": [
+                    {
+                        "targets": [0],
+                        "visible": false,
+                        "searchable": false
+                    },
+                    {
+                        "targets": [6],
+                        "searchable": false,
+                        "orderable": false
+                    },
+
+                ]
+            });
+
+            // Edit record
+            $('#example').on('click', 'a.editor_edit', function (e) {
+                e.preventDefault();
+                var data = table.row($(this).parents('tr')).data();
+                var patientId = data.patientId;
+                GetDetail(patientId);
+            });
+
+            // Delete a record
+            $('#example').on('click', 'a.editor_remove', function (e) {
+                e.preventDefault();
+                var data = table.row($(this).parents('tr')).data();
+                var patientId = data.patientId;
+
+                if (confirm("Remove patient " + data.firstName + " " + data.lastName + " data?")) {
+                    var callback = function (data) {
+                        console.log(data);
+                        if (data.isSuccess) {
+                            table.ajax.reload();
+                        } else {
+                            console.log(data.message);
+                        }
+                    };
+
+                    $.ajax({
+                        type: "POST",
+                        url: "/Home/RemovePatientDetail",
+                        data: {
+                            PatientId: data.patientId
+                        },
+                        success: callback,
+                        error: function (jqXHR, textStatus, errorThrown) {
+                            console.log(textStatus);
+                        }
+                    });
+                }
+
+            });
+        });
+    </script>
+}
